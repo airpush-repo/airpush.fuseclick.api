@@ -1,0 +1,7 @@
+node_modules
+.idea
+log
+!/config/log
+public/download
+test
+public/files
