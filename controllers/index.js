@@ -1,9 +1,10 @@
 const services = require("../services");
 
-module.exports = function () {
+module.exports = async function () {
   try {
-    services.taskManager();
-  } catch (err) {
-    
+    await services.taskManager();
+  } 
+  catch (err) {
+    console.log("err:", err.message);
   }
 }

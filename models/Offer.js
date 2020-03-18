@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const schema = new Schema({
-  offer_id: { type: Number, default: 0 },
+  offer_id: { type: Number, default: null },
   advertiser_id: { type: Number, default: 0 },
   name: { type: String, default: "" },
   status: { type: String, default: "" },//Active/Pending/Paused/Archived
@@ -16,11 +16,11 @@ const schema = new Schema({
   tracking_protocol: { type: String, default: "" },
   currency: { type: Number, default: 0 },
   payout_type: { type: String, default: "" },//CPA/CPC/CPS/CPI/CPA+CPS/CPL
-  payout: { type: Float64Array, default: 0 },//?
-  payout_percent: { type: Float64Array, default: 0 },//?
+  payout: { type: Number, default: 0 },//?
+  payout_percent: { type: Number, default: 0 },//?
   revenue_type: { type: String, default: "" },//RPA/RPC/RPS/RPI/RPA+RPS/RPL
-  revenue: { type: Float64Array, default: 0 },//?
-  revenue_percent: { type: Float64Array, default: 0 },//?
+  revenue: { type: Number, default: 0 },//?
+  revenue_percent: { type: Number, default: 0 },//?
   need_security_token: { type: Number, default: 0 },//0 OFF ,1 ON
   force_unique: { type: Number, default: 0 },//0 OFF ,1 ON
   session_lifespan: { type: String, default: "" },//1 Day/1 Week/2 Weeks/1 Month
@@ -46,10 +46,11 @@ const schema = new Schema({
   geo_enforce: { type: Number, default: 0 },//0 OFF ,1 ON
   geo_redirect_type: { type: Number, default: 0 },//0: offer  1: geo offer group
   geo_redirect_target_id: { type: Number, default: 0 },
-  app_id: { type: Number, default: 0 },
+  app_id: { type: String, default: "" },
   categories: { type: Array, default: [] },
   advertiser_offer_id: { type: String, default: "" },
-  traffic_type: { type: String, default: "" }
+  traffic_type: { type: String, default: "" },
+  ad_id: { type: String, default: "" },
 }, {
   versionKey: false,
   timestamps: false,

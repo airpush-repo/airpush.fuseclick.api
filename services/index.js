@@ -1,33 +1,209 @@
-const partnerList = require("../config/config").partnerList;
+const { partnerList, melodongData } = require("../config/config");
 const _ = require("lodash");
+const offerDB = require("../models/Offer");
+const rp = require('request-promise');
 
 class Partners {
-  taskManager() {
+  async taskManager() {
     let that = this;
-    _.each(partnerList, function (item) {
-      //根据item['type']和item['next']调整各个partner的调用时间
-      that.getData(item.partner, item.name, function () {
+    let tasks = [];
+    try {
+      _.each(partnerList, function (item) {
+        //根据item['type']和item['next']调整各个partner的调用时间
+        tasks.push(that.getData(item.partner, item.name));
         //更新条件标记
         //打印日志
-      })
-    })
+      });
+      return Promise.all(tasks);
+    }
+    catch (err) {
+      console.log("err:", err.message);
+    }
   }
-  getData(partner, name, cb) {
-    partner(function (err, data) {
-      if (err) {
-        //打印错误日志
-        cb(null);
-      }      
-      if (!data || (data && data.length == 0)) {        
+  async getData(partner, name) {
+    try {
+      let data = await partner();
+      if (!data || (data && data.length === 0)) {
         //updateOfferActiveByProvider([name])
-        cb(null);
+        return [];
+      } else if (data && data.length > 0) {
+        return this.commonOperatesCompare(data, name);
+      } else {
+        return [];
       }
-      if (data && data.length > 0) {
-        console.log("data:", data)
-        //commonOperatesCompare(data, name, cb)
+    }
+    catch (err) {
+      console.log("err:", err.message);
+    }
+  }
+  async commonOperatesCompare(data, name) {
+    let validAdidArr = [];
+    let newArr = [];
+    let updateArr = [];
+    try {
+      for (let i = 0; i < data.length; i++) {
+        let item = data[i];
+        if (item && item.ad_id) {
+          let obj = await this.findByAdid(item.ad_id);
+          if (obj) {
+            if (!(this.objectMatch(obj, item))) {
+              _.assign(item, { offer_id: obj.offer_id });
+              updateArr.push(item);
+            }
+            validAdidArr.push(obj.ad_id);
+          } else {
+            newArr.push(item);
+          }
+        }
       }
-      cb(null);
+      //上线或者新增
+      if (newArr.length) {
+        // let newAd_ids = [];
+        // _.each(newArr, function (item) {
+        //   newAd_ids.push(item.ad_id);
+        // });
+        // //更新老数据的上线
+        // await offerDB.update(
+        //   { ad_id: { $in: newAd_ids } },
+        //   { $set: { status: "Active" } },
+        //   { upsert: false }
+        // )
+
+        //新数据直接新增
+        let result = await offerDB.insertMany(newArr);
+        await this.bulkSend(newArr, result);
+      }
+      //更新
+      if (updateArr.length) {
+        let ops = [];
+        _.each(updateArr, function (item) {
+          ops.push({
+            updateOne: {
+              filter: {
+                offer_id: item.offer_id
+              },
+              update: {
+                "$set": item
+              }
+            }
+          })
+        });
+        await offerDB.bulkWrite(ops)
+        await this.bulkSend(updateArr, []);
+      }
+      //批量下线
+      if (validAdidArr.length) {
+        let invalidArr = await offerDB.update(
+          { ad_id: { $nin: validAdidArr }, advertiser_id: data[0].advertiser_id },
+          { $set: { status: "Paused" } },
+          // { upsert: false }
+          { new: true }
+        );
+        if (invalidArr && invalidArr.length > 0) {
+          await this.bulkSend(invalidArr, []);
+        }
+      }
+      return "";
+    }
+    catch (err) {
+      console.log("err:", err.message);
+    }
+  }
+  objectMatch(ref, obj) {
+    let result = true;
+    _.each(obj, function (v, k) {
+      if (k == "_id" || k == "to_email") {
+        return;
+      };
+      if ((_.isUndefined(v) || _.isNull(v) || !v) && (_.isUndefined(ref[k]) || _.isNull(ref[k]) || !ref[k])) {
+        return;
+      }
+      if (!_.isEqual(ref[k], v)) {
+        result = false;
+      };
     })
+    return result;
+  }
+  // async find() {
+  //   try {
+  //     return offerDB.find({}, {}, { lean: true });
+  //   }
+  //   catch (err) {
+  //     console.log("err:", err.message);
+  //   }
+  // }
+  async findByAdid(adid) {
+    try {
+      return offerDB.findOne({ ad_id: adid }, {}, { lean: true });
+    }
+    catch (err) {
+      console.log("err:", err.message);
+    }
+  }
+  async updateOfferId(id, offerId) {
+    try {
+      return offerDB.findOneAndUpdate({ _id: id }, { offer_id: offerId });
+    }
+    catch (err) {
+      console.log("err:", err.message);
+    }
+  }
+  // async updateOffer(data) {
+  //   try {
+  //     let query = _.pick(data, ["offer_id"]);
+  //     let update = _.omit(data, ["offer_id"]);
+  //     return offerDB.findOneAndUpdate(query, update);
+  //   }
+  //   catch (err) {
+  //     console.log("err:", err.message);
+  //   }
+  // }
+  async send(data, ref) {
+    if (ref) {
+      _.assign(data, { _id: ref.id });
+    }
+    if (!data.offer_id) {
+      data = _.omit(data, ["offer_id"]);
+    }
+    let _id = data._id;
+    data = _.omit(data, ["_id", "ad_id"]);
+    let option = {
+      uri: "http://airpush.fuseclick.com/api/v2/setOffer?key=67A195D1256FAFCD08633BFA77342B7C",
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      // body: data,
+      form: data,
+      // json: true
+    };
+    try {
+      let result = await rp(option);
+      result = JSON.parse(result);
+      if (result && (result.httpStatus === 201 || result.httpStatus === 202) && result.data) {
+        //creating
+        let offerId = result.data[0].id;
+        await this.updateOfferId(_id, offerId);
+      } else if (result && (result.httpStatus === 201 || result.httpStatus === 202) && !result.data) {
+        //updating
+        // await this.updateOffer(data);
+      } else { }
+    }
+    catch (err) {
+      console.log("err:", err.message);
+    }
+  }
+  async bulkSend(datas, refs) {
+    let tasks = [];
+    try {
+      for (let i = 0; i < datas.length; i++) {
+        tasks.push(this.send(datas[i], refs[i]));
+      }
+      await Promise.all(tasks);
+    }
+    catch (err) {
+      console.log("err:", err.message);
+    }
   }
 }
 
