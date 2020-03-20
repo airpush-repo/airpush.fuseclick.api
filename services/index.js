@@ -47,7 +47,7 @@ class Partners {
           let obj = await this.findByAdid(item.ad_id);
           if (obj) {
             if (!(this.objectMatch(obj, item))) {
-              _.assign(item, { offer_id: obj.offer_id });
+              _.assign(item, { id: obj.id });
               updateArr.push(item);
             }
             validAdidArr.push(obj.ad_id);
@@ -80,7 +80,7 @@ class Partners {
           ops.push({
             updateOne: {
               filter: {
-                offer_id: item.offer_id
+                id: item.id
               },
               update: {
                 "$set": item
@@ -93,13 +93,15 @@ class Partners {
       }
       //批量下线
       if (validAdidArr.length) {
-        let invalidArr = await offerDB.update(
-          { ad_id: { $nin: validAdidArr }, advertiser_id: data[0].advertiser_id },
-          { $set: { status: "Paused" } },
-          // { upsert: false }
-          { new: true }
-        );
+        let query = { ad_id: { $nin: validAdidArr }, advertiser_id: data[0].advertiser_id };
+        let fields = "id";
+        let update = { $set: { status: "Paused" } };
+        let invalidArr = await offerDB.find(query, fields, { lean: true });
         if (invalidArr && invalidArr.length > 0) {
+          await offerDB.update(query, update, { multi: true });
+          invalidArr = _.map(invalidArr, item => {
+            return _.assign(item, { status: "Paused" });
+          })
           await this.bulkSend(invalidArr, []);
         }
       }
@@ -142,7 +144,7 @@ class Partners {
   }
   async updateOfferId(id, offerId) {
     try {
-      return offerDB.findOneAndUpdate({ _id: id }, { offer_id: offerId });
+      return offerDB.findOneAndUpdate({ _id: id }, { id: offerId });
     }
     catch (err) {
       console.log("err:", err.message);
@@ -160,10 +162,10 @@ class Partners {
   // }
   async send(data, ref) {
     if (ref) {
-      _.assign(data, { _id: ref.id });
+      _.assign(data, { _id: ref._id });
     }
-    if (!data.offer_id) {
-      data = _.omit(data, ["offer_id"]);
+    if (!data.id) {
+      data = _.omit(data, ["id"]);
     }
     let _id = data._id;
     data = _.omit(data, ["_id", "ad_id"]);
@@ -180,11 +182,11 @@ class Partners {
     try {
       let result = await rp(option);
       result = JSON.parse(result);
-      if (result && (result.httpStatus === 201 || result.httpStatus === 202) && result.data) {
+      if (result && result.httpStatus === 201) {
         //creating
         let offerId = result.data[0].id;
         await this.updateOfferId(_id, offerId);
-      } else if (result && (result.httpStatus === 201 || result.httpStatus === 202) && !result.data) {
+      } else if (result && result.httpStatus === 202) {
         //updating
         // await this.updateOffer(data);
       } else { }

@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const schema = new Schema({
-  offer_id: { type: Number, default: null },
+  id: { type: Number, default: null },
   advertiser_id: { type: Number, default: 0 },
   name: { type: String, default: "" },
   status: { type: String, default: "" },//Active/Pending/Paused/Archived
