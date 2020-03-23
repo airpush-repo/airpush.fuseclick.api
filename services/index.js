@@ -2,9 +2,12 @@ const { partnerList, melodongData } = require("../config/config");
 const _ = require("lodash");
 const offerDB = require("../models/Offer");
 const rp = require('request-promise');
+const LocalLogger = require("../utils/LocalLogger");
+const log = LocalLogger.getLogger("service_partners");
 
 class Partners {
   async taskManager() {
+    log.debug("start taskManager method");
     let that = this;
     let tasks = [];
     try {
@@ -14,29 +17,39 @@ class Partners {
         //更新条件标记
         //打印日志
       });
+      log.debug("end taskManager method");
       return Promise.all(tasks);
     }
     catch (err) {
-      console.log("err:", err.message);
+      log.error("taskManager err:", err.message);
     }
   }
   async getData(partner, name) {
+    log.debug("start getData method");
+    // log.debug("partner:", partner);
+    log.debug("name:", name);
     try {
       let data = await partner();
       if (!data || (data && data.length === 0)) {
         //updateOfferActiveByProvider([name])
+        log.debug("end getData method");
         return [];
       } else if (data && data.length > 0) {
+        log.debug("end getData method");
         return this.commonOperatesCompare(data, name);
       } else {
+        log.debug("end getData method");
         return [];
       }
     }
     catch (err) {
-      console.log("err:", err.message);
+      log.error("getData err:", err.message);
     }
   }
   async commonOperatesCompare(data, name) {
+    log.debug("start commonOperatesCompare method");
+    log.debug("data:", data);
+    log.debug("name:", name);
     let validAdidArr = [];
     let newArr = [];
     let updateArr = [];
@@ -105,13 +118,17 @@ class Partners {
           await this.bulkSend(invalidArr, []);
         }
       }
+      log.debug("end commonOperatesCompare method");
       return "";
     }
     catch (err) {
-      console.log("err:", err.message);
+      log.error("commonOperatesCompare err:", err.message);
     }
   }
   objectMatch(ref, obj) {
+    log.debug("start objectMatch method");
+    log.debug("ref:", ref);
+    log.debug("obj:", obj);
     let result = true;
     _.each(obj, function (v, k) {
       if (k == "_id" || k == "to_email") {
@@ -124,6 +141,7 @@ class Partners {
         result = false;
       };
     })
+    log.debug("end objectMatch method:", result);
     return result;
   }
   // async find() {
@@ -135,19 +153,28 @@ class Partners {
   //   }
   // }
   async findByAdid(adid) {
+    log.debug("start findByAdid method");
+    log.debug("adid:", adid);
     try {
-      return offerDB.findOne({ ad_id: adid }, {}, { lean: true });
+      let offer = await offerDB.findOne({ ad_id: adid }, {}, { lean: true });
+      log.debug("end findByAdid method:", offer);
+      return offer;
     }
     catch (err) {
-      console.log("err:", err.message);
+      log.error("findByAdid err:", err.message);
     }
   }
   async updateOfferId(id, offerId) {
+    log.debug("start updateOfferId method");
+    log.debug("id:", id);
+    log.debug("offerId:", offerId);
     try {
-      return offerDB.findOneAndUpdate({ _id: id }, { id: offerId });
+      let result = await offerDB.findOneAndUpdate({ _id: id }, { id: offerId });
+      log.debug("end updateOfferId method");
+      return result;
     }
     catch (err) {
-      console.log("err:", err.message);
+      log.error("updateOfferId err:", err.message);
     }
   }
   // async updateOffer(data) {
@@ -161,6 +188,9 @@ class Partners {
   //   }
   // }
   async send(data, ref) {
+    log.debug("start send method");
+    log.debug("data:", data);
+    log.debug("ref:", ref);
     if (ref) {
       _.assign(data, { _id: ref._id });
     }
@@ -190,21 +220,37 @@ class Partners {
         //updating
         // await this.updateOffer(data);
       } else { }
+      log.debug("end send method");
     }
     catch (err) {
-      console.log("err:", err.message);
+      log.error("send err:", err.message);
     }
   }
   async bulkSend(datas, refs) {
+    log.debug("start bulkSend method");
+    log.debug("datas:", datas);
+    log.debug("refs:", refs);
     let tasks = [];
     try {
       for (let i = 0; i < datas.length; i++) {
         tasks.push(this.send(datas[i], refs[i]));
       }
       await Promise.all(tasks);
+      log.debug("end bulkSend method");
     }
     catch (err) {
-      console.log("err:", err.message);
+      log.error("bulkSend err:", err.message);
+    }
+  }
+  async rmInvalidData() {
+    log.debug("start rmInvalidData method");
+    try {
+      let result = await offerDB.remove({ id: null });
+      log.debug("end rmInvalidData method:", result);
+      return result;
+    }
+    catch (err) {
+      log.error("rmInvalidData err:", err.message);
     }
   }
 }

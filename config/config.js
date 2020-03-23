@@ -25,6 +25,8 @@ config.partnerList = [
   }
 ];
 
+config.LOG4JSCONFIG = require('./log/LOG4JSCONFIG');
+
 config.melodongData = [{
   offer_id: 0,
   advertiser_id: 23,

@@ -1,10 +1,11 @@
 const _ = require("lodash");
 const rp = require('request-promise');
+const LocalLogger = require("../utils/LocalLogger");
+const log = LocalLogger.getLogger("api_melodong");
 
 module.exports = async function (token, name) {
-  // console.log("token:", token)
-  // console.log("name:", name)
-  // callback(null, ["test1"], next);
+  log.debug(`start ${name} api request`);
+  log.debug("token:", token);
   let option = {
     url: `http://api.melodong.com/api/campaigns/v2?token=${token}&publisher_id=1946`,
     method: "GET",
@@ -13,7 +14,7 @@ module.exports = async function (token, name) {
   try {
     let data = await rp(option);
     let objs = [];
-    if (data && data.Statuscode === 200) {      
+    if (data && data.Statuscode === 200) {
       let campaigns = data.campaigns || [];
       _.each(campaigns, function (item, key) {
         let obj = {};
@@ -28,10 +29,20 @@ module.exports = async function (token, name) {
         obj["tracking_protocol"] = "Server Postback URL";
         obj["currency"] = 1;
         obj["payout_type"] = item.payout_type;
-        obj["payout"] = parseFloat(item.payout);
+        obj["payout"] = parseFloat(item.payout) * 0.7; //CPA/CPC/CPS/CPI/CPA+CPS/CPL        
         obj["payout_percent"] = 0.7;
-        obj["revenue_type"] = "RPS";//RPA/RPC/RPS/RPI/RPA+RPS/RPL  待确认
-        obj["revenue"] = 0.1;
+        if (item.payout_type === "CPA") {
+          obj["revenue_type"] = "RPA";//RPA/RPC/RPS/RPI/RPA+RPS/RPL  待确认
+        } else if (item.payout_type === "CPC") {
+          obj["revenue_type"] = "RPC";
+        } else if (item.payout_type === "CPS") {
+          obj["revenue_type"] = "RPS";
+        } else if (item.payout_type === "CPI") {
+          obj["revenue_type"] = "RPI";
+        } else if (item.payout_type === "CPL") {
+          obj["revenue_type"] = "RPL";
+        }
+        obj["revenue"] = parseFloat(item.payout);
         obj["revenue_percent"] = 0.1;
         obj["need_security_token"] = 0;//0 OFF ,1 ON
         obj["force_unique"] = 0;
@@ -90,12 +101,13 @@ module.exports = async function (token, name) {
         obj["advertiser_offer_id"] = "";
         obj["traffic_type"] = "Non-Incent";
         objs.push(obj);
-      })      
+      })
     }
+    log.debug(`end ${name} api request:`, objs);
     return objs;
   }
   catch (err) {
-    console.log("err:", err.message)
+    log.error(`end ${name} api request err:`, err.message)
     return [];
   }
 }
