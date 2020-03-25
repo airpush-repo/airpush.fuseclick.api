@@ -5,7 +5,7 @@ const melodong = require("../services/melodong");
 let config = {};
 
 config.mongoose = {
-  uri: "mongodb://localhost:27017/offerDB",
+  uri: "mongodb://127.0.0.1:27017/offerDB",
   option: {
     useNewUrlParser: true,
     poolSize: 200,
