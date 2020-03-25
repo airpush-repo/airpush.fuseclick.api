@@ -107,7 +107,7 @@ module.exports = async function (token, name) {
     return objs;
   }
   catch (err) {
-    log.error(`end ${name} api request err:`, err.message)
+    log.error(`${name} api request err:`, err.message);
     return [];
   }
 }

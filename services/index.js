@@ -17,8 +17,9 @@ class Partners {
         //更新条件标记
         //打印日志
       });
+      let result = await Promise.all(tasks);
       log.debug("end taskManager method");
-      return Promise.all(tasks);
+      return result;
     }
     catch (err) {
       log.error("taskManager err:", err.message);
@@ -34,9 +35,10 @@ class Partners {
         //updateOfferActiveByProvider([name])
         log.debug("end getData method");
         return [];
-      } else if (data && data.length > 0) {
+      } else if (data && data.length > 0) {        
+        let result = await this.commonOperatesCompare(data, name);
         log.debug("end getData method");
-        return this.commonOperatesCompare(data, name);
+        return result;
       } else {
         log.debug("end getData method");
         return [];
